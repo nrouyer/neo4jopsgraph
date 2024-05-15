@@ -1,0 +1,80 @@
+name,description,query,id,parentId,isFolder
+Neo4j Operations,,,0,,true
+Create constraints,,"CREATE CONSTRAINT IF NOT EXISTS FOR (doc:Document) REQUIRE doc.name IS NODE KEY;
+CREATE CONSTRAINT IF NOT EXISTS FOR (s:Section) REQUIRE s.name IS NODE KEY;",1,0,false
+Read JSON file,,"CALL apoc.load.json(""https://raw.githubusercontent.com/nrouyer/neo4jopsgraph/main/data/neo4jops.json"") YIELD value
+RETURN value",2,0,false
+Create root document,,"CALL apoc.load.json(""https://raw.githubusercontent.com/nrouyer/neo4jopsgraph/main/data/neo4jops.json"") YIELD value
+UNWIND keys(value) AS valueKey
+MERGE (doc:Document {name: valueKey})
+RETURN doc",3,0,false
+Turn nested map into graph items,,"CALL apoc.load.json(""https://raw.githubusercontent.com/nrouyer/neo4jopsgraph/main/data/neo4jops.json"") YIELD value
+UNWIND keys(value) AS valueKey1
+WITH valueKey1, value 
+UNWIND value[valueKey1] AS value2
+WITH valueKey1, value2
+UNWIND keys(value2) AS valueKey2
+WITH valueKey1, value2, valueKey2, value2[valueKey2] AS value3 
+UNWIND keys(value3) AS valueKey3
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value3[valueKey3] AS value4
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value4, apoc.meta.cypher.type(value4) AS typeValue4 WHERE typeValue4 = ""MAP""
+UNWIND keys(value4) AS valueKey4
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value4, valueKey4, value4[valueKey4] AS value5
+RETURN valueKey1, value2, valueKey2, value3, valueKey3, value4, valueKey4, value5
+",4,0,false
+Turn nested map into string,,"CALL apoc.load.json(""https://raw.githubusercontent.com/nrouyer/neo4jopsgraph/main/data/neo4jops.json"") YIELD value
+UNWIND keys(value) AS valueKey1
+WITH valueKey1, value 
+UNWIND value[valueKey1] AS value2
+WITH valueKey1, value2
+UNWIND keys(value2) AS valueKey2
+WITH valueKey1, value2, valueKey2, value2[valueKey2] AS value3 
+UNWIND keys(value3) AS valueKey3
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value3[valueKey3] AS value4
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value4, apoc.meta.cypher.type(value4) AS typeValue4 WHERE typeValue4 = ""STRING""
+RETURN valueKey1, value2, valueKey2, value3, valueKey3, value4
+",5,0,false
+Create document hierarchy,,"CALL apoc.load.json(""https://raw.githubusercontent.com/nrouyer/neo4jopsgraph/main/data/neo4jops.json"") YIELD value
+UNWIND keys(value) AS valueKey1
+WITH valueKey1, value 
+UNWIND value[valueKey1] AS value2
+WITH valueKey1, value2
+UNWIND keys(value2) AS valueKey2
+WITH valueKey1, value2, valueKey2, value2[valueKey2] AS value3 
+UNWIND keys(value3) AS valueKey3
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value3[valueKey3] AS value4
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value4, apoc.meta.cypher.type(value4) AS typeValue4 WHERE typeValue4 = ""MAP""
+UNWIND keys(value4) AS valueKey4
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value4, valueKey4, value4[valueKey4] AS value5
+MATCH (doc:Document {name: valueKey1})
+MERGE (section1:Section {name:valueKey2}) 
+    ON CREATE SET section1.level = 1
+    ON MATCH SET section1.level = 1
+MERGE (section2:Section {name:valueKey3}) 
+    ON CREATE SET section2.level = 2
+    ON MATCH SET section2.level = 2
+MERGE (section3:Section {name:valueKey4}) 
+    ON CREATE SET section3.level = 3
+    ON MATCH SET section3.level = 3
+MERGE (doc)-[:CONTAINS]->(section1)
+MERGE (section1)-[:CONTAINS]->(section2)
+MERGE (section2)-[:CONTAINS]->(section3)
+RETURN doc, section1, section2, section3",6,0,false
+Show document hierarchy,,MATCH p=()-[:CONTAINS]->() RETURN p;,7,0,false
+Set reference url property,,"CALL apoc.load.json(""https://raw.githubusercontent.com/nrouyer/neo4jopsgraph/main/data/neo4jops.json"") YIELD value
+UNWIND keys(value) AS valueKey1
+WITH valueKey1, value 
+UNWIND value[valueKey1] AS value2
+WITH valueKey1, value2
+UNWIND keys(value2) AS valueKey2
+WITH valueKey1, value2, valueKey2, value2[valueKey2] AS value3 
+UNWIND keys(value3) AS valueKey3
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value3[valueKey3] AS value4
+WITH valueKey1, value2, valueKey2, value3, valueKey3, value4, apoc.meta.cypher.type(value4) AS typeValue4 WHERE typeValue4 = ""STRING""
+MATCH (section2:Section {name:valueKey2}) 
+CALL apoc.create.setProperty(section2, apoc.text.camelCase(valueKey3), value4)
+YIELD node 
+RETURN node",8,0,false
+Export operation guide structure,,"MATCH path=(doc:Document)-[:CONTAINS*3]->(:Section) 
+WITH [x in nodes(path) WHERE x:Section| [x.name, coalesce(x.referenceUrl, x.level)]] AS structure
+RETURN structure",9,0,false
